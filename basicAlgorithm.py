@@ -8,7 +8,7 @@ import seaborn as sns
 import pandas as pd
 import scipy as sc
 import random
-from sklearn.datasets import load_digits
+from sklearn.datasets import load_digits, load_iris
 from scipy.stats import norm, chi2
 from time import time
 
@@ -25,7 +25,7 @@ min_x_bound = 100
 #plot is boolean. If true, plot the values, if not, don't plot
 #debug is a boolean that allows me to print stuff while debugging
 #function returns a 2xN matrix Y (low dimensional representation)
-def gradChiKSquare(data,target,Trials,eta,stopVal, plot,debug):
+def gradChiKSquare(data,target,Trials,eta, plot,debug):
     t0 = time()
     #calculate the dimension and t of this data
     origDist1 = calcDist(data)
@@ -36,6 +36,7 @@ def gradChiKSquare(data,target,Trials,eta,stopVal, plot,debug):
     n = 2*(mu**2)/(std**2)
     #what dimension are we working in 
     dim = n
+    #if n < 1, make it 1
     if n < 1:
         dim =1
     origDist = t*origDist1
@@ -43,44 +44,32 @@ def gradChiKSquare(data,target,Trials,eta,stopVal, plot,debug):
     newDist = pushForward(origDist,dim)
     #given the x bound, what is the y bound?
     x_bound = dim-2
-    if x_bound <= 0 or n ==1 :
+    #if dimension is 1, the relationship is linear
+    if x_bound <= 0 or n < 2 or debug == True:
         x_bound = min_x_bound
         y_bound = x_bound
-    y_bound = -2*math.log(1-chi2.cdf(x_bound,dim))
-    if debug==True:
-        x_bound = min_x_bound
-        y_bound = min_y_bound
+    else:
+        y_bound = -2*math.log(1-chi2.cdf(x_bound,dim))
     #initialize some random data, make a copy to store things during our calculations
     Y = np.random.rand(2,len(data[:,0]))
-    all_dist = np.zeros((1,len(data[:,0])))
-    average = stopVal + 1
     t = 0
     #averages = []
     while t < Trials:
         for i in range(0,len(Y[0,:])):
-            dist_total = 0
-            #tempVector = Y[:,i]-Y[:,i]
             for j in range(0,len(Y[1,:])):
                 if(i != j):
-                    #calc the dist
+                    #calc the normalized difference
+                    #calc the distance
                     dif = Y[:,i]-Y[:,j]
                     dist = LA.norm(dif)
-                    dif  = (1/dist)*dif
+                    dif = (1/dist)*dif
                     actual_y_dist = dist*dist
                     #if our high dimensional distance is small and the low dimensional distance is large, pull closer together
                     if actual_y_dist > newDist[i][j] and origDist[i][j] < x_bound:
                         Y[:,i] = Y[:,i] - eta*dif
-                        #tempVector = tempVector - eta*dif
-                        dist_total += abs(actual_y_dist - newDist[i][j])
                     #if our high dimension distance is large and our low dimensional distance is small, push apart.
-                    if origDist[i][j] > x_bound and actual_y_dist < y_bound:
+                    if actual_y_dist < y_bound and origDist[i][j] > x_bound:
                         Y[:,i] = Y[:,i] + eta*dif
-                        #tempVector = tempVector + eta*dif
-                        dist_total += abs(actual_y_dist - newDist[i][j])
-            #Y[:,i] = Y[:,i]+tempVector
-            all_dist[0][i] = dist_total/len(Y[1,:])
-        average = sum(all_dist[0,:])/len(all_dist[0,:])
-        #averages.append(average)
         t += 1
     t1 = time()
     if plot == True:
@@ -93,49 +82,44 @@ def gradChiKSquare(data,target,Trials,eta,stopVal, plot,debug):
         ax = subplots[1]
         ax.scatter(Y[0,:],Y[1,:],c=target)
         plt.show()
-    print('Average '+str(average))
     print('new dim '+str(dim))
     print('Time '+str(t1-t0))
     return(Y)
-
-#calculate all the distance distributions, returns distances in high dimensions and transformed distances
+#returns a matrix of distnces. B[i,j] is the distance between xi and xj 
 def calcDist(x):
     size = len(x[:,1])
     #this will hold the original distances
-    B = np.random.rand(size,size)
+    B = np.zeros((size,size))
     for i in range(0,size):
-        for j in range(0,i+1):
-            diff = x[i]-x[j]
+        for j in range(i+1,size):
+            diff = x[i,:]-x[j,:]
             dists = LA.norm(diff)**2
-            #dist = LA.norm(diff)
             B[i,j] = dists
             B[j,i] = B[i,j]
     return(B)
 
+#takes a matrix of distances (x[i][j] is the distance ||xi-xj||)
+#and transforms them using the pushforward function
 def pushForward(x,n):
+    if n < 2:
+        return(x)
     size = len(x[:,1])
     dim = n
     #this will hold the transformed distances
-    D = np.random.rand(size,size)
+    D = np.zeros((size,size))
     for i in range(0,size):
-        for j in range(0,i+1):
-            diff = x[i]-x[j]
-            dist = LA.norm(diff)**2
-            if (1-chi2.cdf(dist,dim))==0:
+        for j in range(i,size):
+            if (1-chi2.cdf(x[i,j],dim))==0:
                 D[i,j] = -2*np.log(10**(-292))
             else:
-                D[i,j] = -2*math.log(1-chi2.cdf(dist,dim))
+                D[i,j] = -2*math.log(1-chi2.cdf(x[i,j],dim))
             D[j,i] = D[i,j]
-##            if sc.special.gammaincc(dim/2,dist*dist) == 0:
-##                D[i,j] = -2*math.log(10**(-292))
-##            else:
-##                D[i,j] = -2*math.log(sc.special.gammaincc(dim/2,dist*dist))
-##            D[j,i] = D[i,j]
     return(D)
 
 #########################RUN DIGITS DATASET#################################
 digits = load_digits()
 #only running it for 100 values at the moment
 X = digits.data[0:100]
-Y = gradChiKSquare(X,digits.target[0:100],10,0.01,0.01, True,False)
+myTarget = digits.target[0:100]
+Y = gradChiKSquare(X,myTarget,5,0.01,True,False)
 plt.show()
