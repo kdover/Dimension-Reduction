@@ -16,6 +16,7 @@ from time import time
 
 #minimum x_bound for when our input is a line
 sampleNum = 50
+stepSize= 2
 
 #####################################FUNCTIONS###############################
 def localDimReduction(data,target,Trials,eta,K, plot,debug):
@@ -47,7 +48,8 @@ def localDimReduction(data,target,Trials,eta,K, plot,debug):
     globalDist = ourT*gDist
     newGlobalDist = pushForward(globalDist,globalN)
     #we have the local and global structure, now initialize the low dim data
-    Y = np.random.rand(len(data[:,0]),2)
+    #Y = np.random.rand(len(data[:,0]),2)
+    Y = np.random.normal(0,0.01,(len(data[:,0]),2))
     trialNum = 0
     while trialNum < Trials:
         #in this for loop, we will only attract
@@ -70,21 +72,21 @@ def localDimReduction(data,target,Trials,eta,K, plot,debug):
                     if localN < 3:
                         #too small, pull together
                         if actual_y_dist < origDist:
-                            Y[i,:] = Y[i,:]-10*eta*dif
+                            Y[i,:] = Y[i,:]-stepSize*eta*dif
                         #else push apart
                         else:
-                            Y[i,:] = Y[i,:] + 10*eta*dif
+                            Y[i,:] = Y[i,:] + stepSize*eta*dif
                     #else the dimension is >= 3, use push forward function
                     else:
                         xbound = localN-2
                         newDist = -2*math.log(1-chi2.cdf(origDist,localN))
                         ybound = -2*math.log(1-chi2.cdf(xbound,localN))
                         #if high dim dist is small and low dim dist is large, pull closer
-                        if actual_y_dist > newDist:
-                            Y[i,:] = Y[i,:]-10*eta*dif
+                        if actual_y_dist > newDist and origDist < xbound:
+                            Y[i,:] = Y[i,:]-stepSize*eta*dif
                         #if high dim dist is large and low dim dist is small, push apart
-                        if actual_y_dist < newDist:
-                            Y[i,:] = Y[i,:]+10*eta*dif
+                        if actual_y_dist < newDist and origDist > xbound:
+                            Y[i,:] = Y[i,:]+stepSize*eta*dif
                 #now,let us look at the global points
                 if j not in ind[i]:
                     dif = Y[i,:]-Y[j,:]
@@ -94,19 +96,19 @@ def localDimReduction(data,target,Trials,eta,K, plot,debug):
                     if globalN < 3:
                         origDist = globalDist[i][j]
                         if actual_y_dist > origDist:
-                            Y[i,:] = Y[i,:] - 2*eta*dif
+                            Y[i,:] = Y[i,:] - eta*dif
                         else:
-                            Y[i,:] = Y[i,:]+2*eta*dif
+                            Y[i,:] = Y[i,:]+eta*dif
                     else:
                         origDist = globalDist[i][j]
                         newDist = newGlobalDist[i][j]
                         xbound = globalN-2
                         ybound = -2*math.log(1-chi2.cdf(xbound,globalN))
                         #if high dim dist is small and low dim dist is large, pull closer
-                        if actual_y_dist > newDist:
-                            Y[i,:] = Y[i,:]-2*eta*dif
-                        if actual_y_dist < newDist:
-                            Y[i,:] = Y[i,:]+2*eta*dif
+                        if actual_y_dist > newDist and origDist < xbound:
+                            Y[i,:] = Y[i,:]-eta*dif
+                        if actual_y_dist < newDist and origDist > xbound:
+                            Y[i,:] = Y[i,:]+eta*dif
         trialNum += 1
     return(Y,localDim)                                        
 
@@ -145,12 +147,12 @@ def pushForward(x,n):
 digits = load_digits()
 iris = load_iris()
 #only running it for 100 values at the moment
-X = digits.data[0:200,:]
-myTarget = digits.target[0:200]
+X = digits.data[0:50,:]
+myTarget = digits.target[0:50]
 #K can't be smaller than 32
 K = 35
 #X = iris.data
 #myTarget = iris.target
-Y,localDim = localDimReduction(X,myTarget,50,0.01,K, True,False)
+Y,localDim = localDimReduction(X,myTarget,5,0.01,K, True,False)
 plt.scatter(Y[:,0],Y[:,1],c=myTarget)
 plt.show()
