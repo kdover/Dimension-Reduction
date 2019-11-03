@@ -13,7 +13,7 @@ function [ Y ] = localDimReduction(data, Trials, eta, K)
     globalN = 2*(mu^2)/(sigma^2);
     
     %initialize our data as normal, small variance
-    Y = 0.001*randn(dataSize,2);
+    Y = 1.001*randn(dataSize,2);
     trialNum = 0;
     while trialNum < Trials
         for i = 1:dataSize
@@ -58,7 +58,7 @@ function [ Y ] = localDimReduction(data, Trials, eta, K)
                         expectedDist = -2*log(1-chi2cdf(highDist,globalN));
                         xbound = globalN-2;
                         ybound = -2*log(1-chi2cdf(xbound,globalN));
-                        if actual_y_dst > expectedDist && highDist < xbound
+                        if actual_y_dist > expectedDist && highDist < xbound
                             Y(i,:) = Y(i,:)-eta*dif;
                          elseif actual_y_dist < ybound && highDist > xbound
                              Y(i,:) = Y(i,:)+eta*actual_y_dist*dif;
